@@ -1,6 +1,6 @@
 [package]
 name = "krater"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 description = "Open-Source Intelligence (OSINT) gathering tool"
 license = "MIT OR Apache-2.0"
