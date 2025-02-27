@@ -7,3 +7,6 @@ license = "MIT OR Apache-2.0"
 repository = "https://github.com/amrosia/krater"
 
 [dependencies]
+async-trait = "0.1.86"
+clap = { version = "4.5.31", features = ["derive"] }
+tokio = { version = "1.39.0", features = ["full"] }
