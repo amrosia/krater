@@ -1,6 +1,6 @@
 use clap::Parser;
 use async_trait::async_trait;
-use std::sync::Arc;
+use std::error::{self, Error};
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -15,5 +15,5 @@ pub fn parse_args() -> Args {
 
 #[async_trait]
 pub trait Query {
-    async fn run(&self, url: Arc<String>) -> String;
+    async fn run(&self) -> Result<String, Box<dyn Error>>;
 }
