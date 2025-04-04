@@ -1,9 +1,7 @@
-#[allow(dead_code)]
 // NOT production-ready, this crate is under development
 
-use std::io::{self, Write};
 use rustyline::error::ReadlineError;
-use rustyline::{DefaultEditor, Result};
+use rustyline::DefaultEditor;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
@@ -37,7 +35,11 @@ async fn main() {
         
         match rl.readline("krater > ") {
             Ok(input) => {
-                rl.add_history_entry(&input);
+                if !input.trim().is_empty() {
+                    if let Err(e) = rl.add_history_entry(&input) {
+                        eprintln!("Error adding to history: {}", e);
+                    }
+                }
                 let input = input.trim().to_string();
                 
                 let mut args = input.split_whitespace();
@@ -51,7 +53,6 @@ async fn main() {
 
                             match handle.await {
                                 Ok(_) => println!("Scan executed successfully"),
-                                Ok(Err(e)) => eprintln!("Error executing scan: {}", e),
                                 Err(e) => eprintln!("Scan was interrupted: {}", e),
                             }
                         }

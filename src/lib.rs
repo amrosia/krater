@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use std::error::{self, Error};
+use std::error::Error;
 
 #[async_trait]
 pub trait Query {
@@ -7,6 +7,7 @@ pub trait Query {
 }
 
 // module runner, error handler
+#[allow(dead_code)]
 async fn run_module<T: Query>(module: T, module_name: &str) {
     match module.run().await {
         Ok(results) => {
