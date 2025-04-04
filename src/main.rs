@@ -1,38 +1,94 @@
+#[allow(dead_code)]
 // NOT production-ready, this crate is under development
 
-mod modules;
-use krater::parse_args;
-use krater::Query;
+use std::io::{self, Write};
+use rustyline::error::ReadlineError;
+use rustyline::{DefaultEditor, Result};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
-// url modules
-use modules::whois::Whois;
-use modules::test::Test;
-
-// module runner, error handler
-async fn run_module<T: Query>(module: T, module_name: &str) {
-    match module.run().await {
-        Ok(results) => println!("{} module results:\n{}", module_name, results),
-        Err(e) => eprintln!("{} module error: {}", module_name, e),
-    }
-}
+mod scan;
+use crate::scan::Scan;
 
 #[tokio::main]
 async fn main() {
-    let args = parse_args();
+    let mut rl = DefaultEditor::new().unwrap_or_else(|e| {
+        eprintln!("Error initializing readline: {}", e);
+        std::process::exit(1);
+    });
+    
+    // Create interrupt flag
+    let running = Arc::new(AtomicBool::new(true));
+    let r = running.clone();
+    
+    // Set up CTRL+C handler
+    ctrlc::set_handler(move || {
+        r.store(false, Ordering::SeqCst);
+        println!("\nInterrupted current command");
+    }).expect("Error setting Ctrl-C handler");
 
-    // --url modules logic
-    if let Some(url) = args.url {
-        let whois = Whois::new(url.clone());
-        run_module(whois, "Whois").await;
+    let version = env!("CARGO_PKG_VERSION");
+    println!("Krater v{}", version);
+    println!("Github: https://github.com/amrosia/krater");
+    println!("---");
+    loop {
+        // Reset interrupt flag
+        running.store(true, Ordering::SeqCst);
+        
+        match rl.readline("krater > ") {
+            Ok(input) => {
+                rl.add_history_entry(&input);
+                let input = input.trim().to_string();
+                
+                let mut args = input.split_whitespace();
+                if let Some(command) = args.next() {
+                    match command {
+                        "scan" => {
+                            let running = running.clone();
+                            let handle = tokio::spawn(async move {
+                                Scan::run(&input, running).await
+                            });
 
-        let test = Test::new(url.clone());
-        run_module(test, "Test").await;
-    } 
-    // todo: remove this when another type of data except url added to code
-    else {
-        println!("No URL provided");
+                            match handle.await {
+                                Ok(_) => println!("Scan executed successfully"),
+                                Ok(Err(e)) => eprintln!("Error executing scan: {}", e),
+                                Err(e) => eprintln!("Scan was interrupted: {}", e),
+                            }
+                        }
+                        "help" => {
+                            dbg!("Help command received");
+                        }
+                        "exit" | "quit" => {
+                            println!("Exiting...");
+                            break;
+                        }
+                        _ => {
+                            if !running.load(Ordering::SeqCst) {
+                                continue;
+                            }
+                            if let Err(e) = std::process::Command::new("sh")
+                                .arg("-c")
+                                .arg(&input)
+                                .status()
+                            {
+                                eprintln!("Failed to execute command: {}", e);
+                            }
+                        }
+                    }
+                }
+            }
+            Err(ReadlineError::Interrupted) => {
+                println!("\nUse 'exit' or 'quit' to exit");
+                continue;
+            }
+            Err(ReadlineError::Eof) => {
+                println!("\nUse 'exit' or 'quit' to exit");
+                continue;
+            }
+            Err(e) => {
+                eprintln!("Error: {}", e);
+                continue;
+            }
+        }
     }
-
-
-
 }
